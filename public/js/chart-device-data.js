@@ -12,19 +12,21 @@ $(document).ready(() => {
       this.deviceId = deviceId;
       this.maxLen = 50;
       this.timeData = new Array(this.maxLen);
-      this.temperatureData = new Array(this.maxLen);
-      this.humidityData = new Array(this.maxLen);
+      this.state = new Array(this.maxLen);
     }
 
-    addData(time, temperature, humidity) {
+    addData(time, state) {
       this.timeData.push(time);
-      this.temperatureData.push(temperature);
-      this.humidityData.push(humidity || null);
-
+      if (state === "pump_on") {
+        this.state.push(1);
+      }
+      else {
+        this.state.push(0);  
+      }
+      
       if (this.timeData.length > this.maxLen) {
         this.timeData.shift();
-        this.temperatureData.shift();
-        this.humidityData.shift();
+        this.state.shift();
       }
     }
   }
@@ -58,24 +60,13 @@ $(document).ready(() => {
     datasets: [
       {
         fill: false,
-        label: 'Temperature',
-        yAxisID: 'Temperature',
+        label: 'Pump_State',
+        yAxisID: 'Pump_State',
         borderColor: 'rgba(255, 204, 0, 1)',
         pointBoarderColor: 'rgba(255, 204, 0, 1)',
         backgroundColor: 'rgba(255, 204, 0, 0.4)',
         pointHoverBackgroundColor: 'rgba(255, 204, 0, 1)',
         pointHoverBorderColor: 'rgba(255, 204, 0, 1)',
-        spanGaps: true,
-      },
-      {
-        fill: false,
-        label: 'Humidity',
-        yAxisID: 'Humidity',
-        borderColor: 'rgba(24, 120, 240, 1)',
-        pointBoarderColor: 'rgba(24, 120, 240, 1)',
-        backgroundColor: 'rgba(24, 120, 240, 0.4)',
-        pointHoverBackgroundColor: 'rgba(24, 120, 240, 1)',
-        pointHoverBorderColor: 'rgba(24, 120, 240, 1)',
         spanGaps: true,
       }
     ]
@@ -83,34 +74,22 @@ $(document).ready(() => {
 
   const chartOptions = {
     scales: {
-      yAxes: [{
-        id: 'Temperature',
+      yAxes: [
+        {
+        id: 'Pump_State',
         type: 'linear',
         scaleLabel: {
-          labelString: 'Temperature (ºC)',
+          labelString: 'Pump State',
           display: true,
         },
         position: 'left',
         ticks: {
           suggestedMin: 0,
-          suggestedMax: 100,
+          suggestedMax: 1,
           beginAtZero: true
         }
-      },
-      {
-        id: 'Humidity',
-        type: 'linear',
-        scaleLabel: {
-          labelString: 'Humidity (%)',
-          display: true,
-        },
-        position: 'right',
-        ticks: {
-          suggestedMin: 0,
-          suggestedMax: 100,
-          beginAtZero: true
         }
-      }]
+      ]
     }
   };
 
@@ -131,26 +110,27 @@ $(document).ready(() => {
   const listOfDevices = document.getElementById('listOfDevices');
   function OnSelectionChange() {
     const device = trackedDevices.findDevice(listOfDevices[listOfDevices.selectedIndex].text);
+    if (!device) {
+      return;
+    }
     chartData.labels = device.timeData;
-    chartData.datasets[0].data = device.temperatureData;
-    chartData.datasets[1].data = device.humidityData;
+    chartData.datasets[0].data = device.state;
     myLineChart.update();
   }
   listOfDevices.addEventListener('change', OnSelectionChange, false);
 
   // When a web socket message arrives:
   // 1. Unpack it
-  // 2. Validate it has date/time and temperature
+  // 2. Validate it has date/time and pump state
   // 3. Find or create a cached device to hold the telemetry data
   // 4. Append the telemetry data
   // 5. Update the chart UI
   webSocket.onmessage = function onMessage(message) {
     try {
       const messageData = JSON.parse(message.data);
-      console.log(messageData);
 
-      // time and either temperature or humidity are required
-      if (!messageData.MessageDate || (!messageData.IotData.temperature && !messageData.IotData.humidity)) {
+      // time and  required
+      if (!messageData.MessageDate || !messageData.IotData.input3.state) {
         return;
       }
 
@@ -158,13 +138,17 @@ $(document).ready(() => {
       const existingDeviceData = trackedDevices.findDevice(messageData.DeviceId);
 
       if (existingDeviceData) {
-        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.temperature, messageData.IotData.humidity);
+        //console.log(messageData.IotData.input3.state);
+        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state);
+        chartData.labels = existingDeviceData.timeData;
+        chartData.datasets[0].data = existingDeviceData.state;
+        myLineChart.update();
       } else {
         const newDeviceData = new DeviceData(messageData.DeviceId);
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
         deviceCount.innerText = numDevices === 1 ? `${numDevices} device` : `${numDevices} devices`;
-        newDeviceData.addData(messageData.MessageDate, messageData.IotData.temperature, messageData.IotData.humidity);
+        newDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state);
 
         // add device to the UI list
         const node = document.createElement('option');
@@ -172,15 +156,13 @@ $(document).ready(() => {
         node.appendChild(nodeText);
         listOfDevices.appendChild(node);
 
-        // if this is the first device being discovered, auto-select it
+        //if this is the first device being discovered, auto-select it
         if (needsAutoSelect) {
           needsAutoSelect = false;
           listOfDevices.selectedIndex = 0;
           OnSelectionChange();
         }
       }
-
-      myLineChart.update();
     } catch (err) {
       console.error(err);
     }
