@@ -13,10 +13,12 @@ $(document).ready(() => {
       this.maxLen = 50;
       this.timeData = new Array(this.maxLen);
       this.state = new Array(this.maxLen);
+      this.temperature = new Array(this.maxLen);
     }
 
-    addData(time, state) {
+    addData(time, state, temperature) {
       this.timeData.push(time);
+      this.temperature.push(temperature/10);
       if (state === "pump_on") {
         this.state.push(1);
       }
@@ -68,6 +70,17 @@ $(document).ready(() => {
         pointHoverBackgroundColor: 'rgba(255, 204, 0, 1)',
         pointHoverBorderColor: 'rgba(255, 204, 0, 1)',
         spanGaps: true,
+      },
+      {
+        fill: false,
+        label: 'Temperature',
+        yAxisID: 'Temperature',
+        borderColor: 'rgba(255, 55, 0, 1)',
+        pointBoarderColor: 'rgba(255, 55, 0, 1)',
+        backgroundColor: 'rgba(255, 55, 0, 0.4)',
+        pointHoverBackgroundColor: 'rgba(255, 55, 0, 1)',
+        pointHoverBorderColor: 'rgba(255, 55, 0, 1)',
+        spanGaps: true,
       }
     ]
   };
@@ -86,6 +99,20 @@ $(document).ready(() => {
         ticks: {
           suggestedMin: 0,
           suggestedMax: 1,
+          beginAtZero: true
+        }
+        },
+        {
+        id: 'Temperature',
+        type: 'linear',
+        scaleLabel: {
+          labelString: 'Temperature (°C)',
+          display: true,
+        },
+        position: 'left',
+        ticks: {
+          suggestedMin: 0,
+          suggestedMax: 100,
           beginAtZero: true
         }
         }
@@ -139,16 +166,17 @@ $(document).ready(() => {
 
       if (existingDeviceData) {
         //console.log(messageData.IotData.input3.state);
-        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state);
+        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state, messageData.IotData.input1.data);
         chartData.labels = existingDeviceData.timeData;
         chartData.datasets[0].data = existingDeviceData.state;
+        chartData.datasets[1].data = existingDeviceData.temperature;
         myLineChart.update();
       } else {
         const newDeviceData = new DeviceData(messageData.DeviceId);
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
         deviceCount.innerText = numDevices === 1 ? `${numDevices} device` : `${numDevices} devices`;
-        newDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state);
+        newDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state, messageData.IotData.input1.data);
 
         // add device to the UI list
         const node = document.createElement('option');
