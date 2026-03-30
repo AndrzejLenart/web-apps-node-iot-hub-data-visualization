@@ -142,6 +142,7 @@ $(document).ready(() => {
     }
     chartData.labels = device.timeData;
     chartData.datasets[0].data = device.state;
+    chartData.datasets[1].data = device.temperature;
     myLineChart.update();
   }
   listOfDevices.addEventListener('change', OnSelectionChange, false);
