@@ -18,7 +18,7 @@ $(document).ready(() => {
 
     addData(time, state, temperature) {
       this.timeData.push(time);
-      this.temperature.push(JSON.parse(temperature)[0]);
+      this.temperature.push(JSON.parse(temperature)[0]/10);
 
       if (state === "pump_on") {
         this.state.push(1);
@@ -114,7 +114,7 @@ $(document).ready(() => {
         position: 'left',
         ticks: {
           suggestedMin: 0,
-          suggestedMax: 1000,
+          suggestedMax: 100,
           beginAtZero: true
         }
         }
