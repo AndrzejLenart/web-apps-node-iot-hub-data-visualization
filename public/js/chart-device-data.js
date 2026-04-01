@@ -18,7 +18,8 @@ $(document).ready(() => {
 
     addData(time, state, temperature) {
       this.timeData.push(time);
-      this.temperature.push(temperature/10);
+      this.temperature.push(JSON.parse(temperature)[0]);
+
       if (state === "pump_on") {
         this.state.push(1);
       }
@@ -29,6 +30,7 @@ $(document).ready(() => {
       if (this.timeData.length > this.maxLen) {
         this.timeData.shift();
         this.state.shift();
+        this.temperature.shift();
       }
     }
   }
@@ -62,7 +64,7 @@ $(document).ready(() => {
     datasets: [
       {
         fill: false,
-        label: 'Pump_State',
+        label: 'Pump State',
         yAxisID: 'Pump_State',
         borderColor: 'rgba(255, 204, 0, 1)',
         pointBoarderColor: 'rgba(255, 204, 0, 1)',
@@ -73,8 +75,8 @@ $(document).ready(() => {
       },
       {
         fill: false,
-        label: 'Temperature',
-        yAxisID: 'Temperature',
+        label: 'Temperature (°C)',
+        yAxisID: 'TempC',
         borderColor: 'rgba(255, 55, 0, 1)',
         pointBoarderColor: 'rgba(255, 55, 0, 1)',
         backgroundColor: 'rgba(255, 55, 0, 0.4)',
@@ -103,7 +105,7 @@ $(document).ready(() => {
         }
         },
         {
-        id: 'Temperature',
+        id: 'TempC',
         type: 'linear',
         scaleLabel: {
           labelString: 'Temperature (°C)',
@@ -112,7 +114,7 @@ $(document).ready(() => {
         position: 'left',
         ticks: {
           suggestedMin: 0,
-          suggestedMax: 100,
+          suggestedMax: 1000,
           beginAtZero: true
         }
         }
@@ -158,16 +160,15 @@ $(document).ready(() => {
       const messageData = JSON.parse(message.data);
 
       // time and  required
-      if (!messageData.MessageDate || !messageData.IotData.input3.state) {
+      if (!messageData.MessageDate || !messageData.IotData.input3.state || !messageData.IotData.input1[0].data) {
         return;
       }
-
+      
       // find or add device to list of tracked devices
       const existingDeviceData = trackedDevices.findDevice(messageData.DeviceId);
-
       if (existingDeviceData) {
         //console.log(messageData.IotData.input3.state);
-        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state, messageData.IotData.input1.data);
+        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state, messageData.IotData.input1[0].data);
         chartData.labels = existingDeviceData.timeData;
         chartData.datasets[0].data = existingDeviceData.state;
         chartData.datasets[1].data = existingDeviceData.temperature;
@@ -177,11 +178,11 @@ $(document).ready(() => {
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
         deviceCount.innerText = numDevices === 1 ? `${numDevices} device` : `${numDevices} devices`;
-        newDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state, messageData.IotData.input1.data);
+        newDeviceData.addData(messageData.MessageDate, messageData.IotData.input3.state, messageData.IotData.input1[0].data);
 
         // add device to the UI list
         const node = document.createElement('option');
-        const nodeText = document.createTextNode(messageData.DeviceId);
+        const nodeText = document.createTextNode(messageData.DeviceId); 
         node.appendChild(nodeText);
         listOfDevices.appendChild(node);
 
@@ -192,6 +193,15 @@ $(document).ready(() => {
           OnSelectionChange();
         }
       }
+      /*myLineChart.data.datasets.forEach((ds, i) => {
+        const meta = myLineChart.getDatasetMeta(i);
+        console.log(`Dataset ${i} - "${ds.label}":`, {
+        hidden: meta.hidden,
+        dataLength: ds.data.length,
+        borderColor: ds.borderColor
+        }
+      );
+      });*/
     } catch (err) {
       console.error(err);
     }
